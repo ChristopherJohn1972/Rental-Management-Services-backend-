@@ -1,0 +1,26 @@
+{
+  "admin@example.com": {
+    "name": "System Admin",
+    "password": "Admin123",
+    "role": "admin",
+    "created_at": "2025-09-09T13:49:21.620350"
+  },
+  "staff@example.com": {
+    "name": "Staff",
+    "password": "Staff123",
+    "role": "staff",
+    "created_at": "2025-09-09T13:49:21.620389"
+  },
+  "tenant@example.com": {
+    "name": " Tenant",
+    "password": "Tenant123",
+    "role": "tenant",
+    "created_at": "2025-09-09T13:49:21.620400"
+  },
+  "mutukuchristopher562@gmail.com": {
+    "name": "Christopher Mutuku",
+    "password": "Chris#1972",
+    "role": "admin",
+    "created_at": "2025-09-09T13:49:21.620410"
+  }
+}
