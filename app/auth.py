@@ -9,7 +9,7 @@ import datetime
 import uuid
 
 # Initialize Firebase
-cred = credentials.Certificate("path/to/serviceAccountKey.json")
+cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://rental-management-system-d7106-default-rtdb.firebaseio.com/'
 })
