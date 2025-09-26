@@ -10,7 +10,8 @@ from typing import List, Dict, Any, Optional
 import firebase_admin
 from firebase_admin import credentials, auth, db, storage
 
-from config.settings import settings
+from config.settings import Config
+settings = Config()  # optional, if your code uses 'settings'
 from app.auth import get_current_user, verify_token
 from app.crud import crud
 from app.models import (
@@ -373,7 +374,7 @@ async def general_exception_handler(request, exc):
 # MAIN ENTRY POINT
 # ========================
 
-if __name__ == "__main__":
+if __name__ == "__main__":	
     import uvicorn
     uvicorn.run(
         "app.main:app",
