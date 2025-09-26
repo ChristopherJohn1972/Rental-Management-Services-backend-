@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: rental-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/app   # for live reload during dev
+    depends_on:
+      - firebase-emulator
+
+  frontend:
+    build: ./frontend
+    container_name: rental-frontend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./frontend/.env
+    volumes:
+      - ./frontend:/app
+
+  firebase-emulator:
+    image: "firebase/firebase-tools:latest"
+    container_name: firebase-emulator
+    command: >
+      bash -c "firebase emulators:start --only database,auth,storage --project rental-management-system-d7106"
+    ports:
+      - "9000:9000"  # database
+      - "9099:9099"  # auth
+      - "9199:9199"  # storage
+    volumes:
+      - ./backend:/app
