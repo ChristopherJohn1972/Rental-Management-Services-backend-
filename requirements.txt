@@ -1,52 +1,24 @@
-# Core Framework
+# requirements.txt - Optimized for Python 3.12.10
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
-flask==2.3.3
-flask-cors==4.0.0
-
-# Firebase Integration
-firebase-admin==6.5.0
-pyrebase4==4.8.0
-google-cloud-storage==2.8.0
-
-# Data Validation & Serialization
-pydantic==2.6.4
-pydantic-settings==2.2.1
-
-# Authentication & Security
-passlib[bcrypt]==1.7.4
-bcrypt==4.0.1
+python-multipart==0.0.6
+firebase-admin==6.2.0
 python-jose[cryptography]==3.3.0
-cryptography==41.0.7
-pyjwt==2.8.0
-
-# Async & Performance
-httpx==0.25.2
-aiofiles==23.2.1
-asgiref==3.7.2
-
-# Data Processing & Utilities
-python-dateutil==2.8.2
-pytz==2023.3.post1
-uuid==1.30
-python-magic==0.4.27
-requests==2.31.0
-
-# Excel/PDF Export (For Reports)
-openpyxl==3.1.2
-xlsxwriter==3.1.2
-reportlab==4.0.6
-polars==0.20.5
-
-# Payments
-stripe==7.0.0
-
-# Deployment
-gunicorn==21.2.0
+passlib[bcrypt]==1.7.4
 python-dotenv==1.0.0
+email-validator==2.1.0
 
-# Testing & Development
-pytest==7.4.3
-pytest-asyncio==0.21.1
-black==23.11.0
-flake8==6.1.0
+# Pydantic with Python 3.12.10 compatibility
+pydantic==2.6.4
+pydantic-core==2.16.3
+
+# Additional dependencies
+pyjwt==2.8.0
+cryptography==41.0.7
+requests==2.31.0
+typing-extensions==4.9.0
+anyio==3.7.1
+starlette==0.27.0
+
+
+gunicorn==21.2.0  # For production
