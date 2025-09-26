@@ -1,0 +1,4 @@
+# Ignore Firebase/Google service keys
+serviceAccountKey.json
+
+venv/
