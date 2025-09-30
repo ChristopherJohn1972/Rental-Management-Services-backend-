@@ -8,6 +8,8 @@ passlib[bcrypt]==1.7.4
 python-dotenv==1.0.0
 email-validator==2.1.0
 
+maturin>=1.0,<2.0
+
 # Pydantic with Python 3.12.10 compatibility
 pydantic>=1.10.9,<2.8
 
