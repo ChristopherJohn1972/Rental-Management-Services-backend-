@@ -1,5 +1,6 @@
 # requirements.txt - Optimized for Python 3.12.10
 fastapi==0.104.1
+Flask==2.4.0
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 firebase-admin==6.2.0
