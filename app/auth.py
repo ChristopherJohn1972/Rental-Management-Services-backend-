@@ -1,12 +1,13 @@
-# main.py
+# app/auth.py
+import datetime
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import firebase_admin
 from firebase_admin import auth, credentials, db
 from pydantic import BaseModel
 from typing import Optional, List
-import datetime
 import uuid
+
 
 # Initialize Firebase
 cred = credentials.Certificate("serviceAccountKey.json")
