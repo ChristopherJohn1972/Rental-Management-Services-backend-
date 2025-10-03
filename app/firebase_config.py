@@ -14,7 +14,7 @@ import datetime
 import re
 
 # Import authentication functions from auth.py
-from auth import requires_role, validate_password, send_otp_email
+from .auth import requires_role, validate_password, send_otp_email
 
 # Initialize Flask app
 app = Flask(__name__, static_folder='static')
