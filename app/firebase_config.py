@@ -1,4 +1,4 @@
-#firebase_config.py (Python Backend - Flask)
+# firebase_config.py (Python Backend - Flask)
 from flask import Flask, request, jsonify, session, redirect, url_for, send_from_directory
 from flask_cors import CORS
 import firebase_admin
@@ -13,9 +13,55 @@ import random
 import datetime
 import re
 
-# Import authentication functions from auth.py
-from .auth import requires_role, validate_password, send_otp_email
+# === REMOVE THIS PROBLEMATIC IMPORT ===
+# from .auth import requires_role, validate_password, send_otp_email
 
+# === ADD THESE PLACEHOLDER FUNCTIONS INSTEAD ===
+def requires_role(required_role):
+    """Temporary placeholder for requires_role decorator"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Simple role checking logic
+            user_role = session.get('role')
+            if not user_role:
+                return jsonify({"error": "Not authenticated"}), 401
+            
+            # Handle both single role and list of roles
+            if isinstance(required_role, list):
+                if user_role not in required_role:
+                    return jsonify({"error": "Insufficient permissions"}), 403
+            elif user_role != required_role:
+                return jsonify({"error": "Insufficient permissions"}), 403
+                
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+def validate_password(password):
+    """Temporary placeholder for password validation"""
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    if not any(char.isupper() for char in password):
+        return False, "Password must contain at least one uppercase letter"
+    if not any(char.islower() for char in password):
+        return False, "Password must contain at least one lowercase letter"
+    if not any(char.isdigit() for char in password):
+        return False, "Password must contain at least one number"
+    return True, "Password is valid"
+
+def send_otp_email(email, otp):
+    """Temporary placeholder for sending OTP emails"""
+    try:
+        # Mock implementation - in production, implement actual email sending
+        print(f"[MOCK] OTP {otp} sent to {email}")
+        # For now, just return success
+        return True
+    except Exception as e:
+        print(f"Error sending OTP: {e}")
+        return False
+
+# === REST OF YOUR EXISTING firebase_config.py CODE ===
 # Initialize Flask app
 app = Flask(__name__, static_folder='static')
 app.secret_key = os.urandom(24)
