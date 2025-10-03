@@ -1,4 +1,5 @@
 # requirements.txt - Optimized for Python 3.12.10
+Authlib==1.4.1
 filelock==3.16.1
 firebase-admin==6.2.0
 fastapi==0.104.1
