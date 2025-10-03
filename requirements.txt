@@ -1,10 +1,12 @@
 # requirements.txt - Optimized for Python 3.12.10
 fastapi==0.104.1
-Flask==2.3.3
-Flask-RESTful==0.3.10       # For API endpoints
-Flask-JWT-Extended==5.0.0    # JWT authentication
-Flask-Cors==3.0.11           # Cross-Origin Resource Sharing
-Flask-Mail==0.9.1
+Flask==3.1.0
+Flask-Cors==5.0.0
+Flask-DebugToolbar==0.16.0
+Flask-JWT-Extended==4.7.1
+Flask-Login==0.6.3
+Flask-Mail==0.10.0
+fonttools==4.55.3
 
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
