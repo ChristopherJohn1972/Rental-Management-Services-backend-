@@ -1,6 +1,9 @@
-from datetime import datetime
-from flask import current_app
-from .firebase_config import db_ref
+# app/models.py
+from pydantic import BaseModel, Field, EmailStr, validator
+from typing import List, Optional, Dict, Any, Union
+from datetime import datetime, date
+from enum import Enum
+import uuid
 
 class User:
     @staticmethod
