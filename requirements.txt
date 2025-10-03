@@ -9,8 +9,7 @@ python-dotenv==1.0.0
 email-validator==2.1.0
 
 # Pydantic with explicit core dependency
-pydantic==2.5.3
-pydantic-core==2.14.0
+pydantic==2.7.1
 
 # Additional dependencies
 pyjwt==2.8.0
