@@ -1,25 +1,23 @@
-# Core FastAPI stack - Optimized for Python 3.12.10
+# requirements.txt - Optimized for Python 3.12.10
 fastapi==0.104.1
-uvicorn[standard]>=0.24.0,<0.28.0
+uvicorn[standard]==0.24.0
 python-multipart==0.0.6
-
-# Authentication and Security
 firebase-admin==6.2.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-pyjwt==2.8.0
-cryptography==41.0.7
-
-# Pydantic with Python 3.12.10 compatibility
-pydantic>=2.5.0,<2.8.0
-
-# Environment & Utilities
 python-dotenv==1.0.0
 email-validator==2.1.0
+
+# Pydantic with explicit core dependency
+pydantic==2.5.3
+pydantic-core==2.14.0
+
+# Additional dependencies
+pyjwt==2.8.0
+cryptography==41.0.7
 requests==2.31.0
 typing-extensions==4.9.0
 anyio==3.7.1
 starlette==0.27.0
 
-# Production Server
-gunicorn>=21.2.0,<23.0.0
+gunicorn==21.2.0  # For production
