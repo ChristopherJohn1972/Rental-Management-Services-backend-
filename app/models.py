@@ -4,7 +4,7 @@ from datetime import datetime
 from flask import current_app
 from typing import Optional, Dict
 # Make sure db_ref points to your Firebase Realtime Database reference
-from app.firebase_config import db_ref  
+from app.firebase_init import db_ref 
 
 # -----------------------------
 # Enums
