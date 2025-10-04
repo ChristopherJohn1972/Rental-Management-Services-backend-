@@ -1,4 +1,3 @@
-# app/firebase_init.py
 import os
 import json
 import logging
@@ -8,20 +7,22 @@ from firebase_admin import credentials, db as firebase_db, auth as firebase_auth
 logger = logging.getLogger(__name__)
 
 def _load_credential():
-    """Load service account from FIREBASE_CREDENTIALS env (JSON string) or local file."""
-    cred_env = os.environ.get("FIREBASE_CREDENTIALS")
-    if cred_env:
+    """Load service account from FIREBASE_CREDENTIALS_PATH env or local file."""
+    cred_path = os.environ.get("FIREBASE_CREDENTIALS_PATH")
+    if cred_path and os.path.exists(cred_path):
         try:
-            return credentials.Certificate(json.loads(cred_env))
+            return credentials.Certificate(cred_path)
         except Exception as e:
-            logger.exception("Invalid FIREBASE_CREDENTIALS env var: %s", e)
+            logger.exception("Failed to load credential from path %s: %s", cred_path, e)
             raise
+    # fallback to local file
     if os.path.exists("serviceAccountKey.json"):
         return credentials.Certificate("serviceAccountKey.json")
     return None
 
-FIREBASE_DB_URL = os.environ.get("FIREBASE_DB_URL")  # e.g. https://<project-id>.firebaseio.com
-FIREBASE_STORAGE_BUCKET = os.environ.get("FIREBASE_STORAGE_BUCKET")  # e.g. <project-id>.appspot.com
+# Correct environment variable names from Render
+FIREBASE_DB_URL = os.environ.get("FIREBASE_DATABASE_URL")
+FIREBASE_STORAGE_BUCKET = os.environ.get("FIREBASE_STORAGE_BUCKET")
 
 _cred = _load_credential()
 
@@ -38,7 +39,6 @@ if not firebase_admin._apps:
             firebase_admin.initialize_app(_cred, init_opts or None)
             logger.info("Firebase initialized with provided credentials")
         else:
-            # Attempt app-default initialization (works on GCP hosts). If it fails, we still continue but db_ref will be None.
             try:
                 firebase_admin.initialize_app(options=init_opts or None)
                 logger.warning("Firebase initialized without explicit credentials (application default).")
@@ -47,7 +47,7 @@ if not firebase_admin._apps:
     except Exception as e:
         logger.exception("Failed to initialize Firebase: %s", e)
 
-# Expose safe references (could be None if init failed)
+# Expose safe references
 if firebase_admin._apps:
     try:
         db_ref = firebase_db.reference("/")
@@ -64,9 +64,5 @@ else:
     db_ref = None
     storage_bucket = None
 
-# Also export firebase_auth
-# (Even if auth operations fail until firebase_admin is initialized, this is convenient)
-try:
-    auth_client = firebase_auth
-except Exception:
-    auth_client = None
+# Export auth
+auth_client = firebase_auth
