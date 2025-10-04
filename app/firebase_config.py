@@ -1,9 +1,8 @@
 # firebase_config.py (Python Backend - Flask)
 from flask import Flask, request, jsonify, session, redirect, url_for, send_from_directory
 from flask_cors import CORS
-import firebase_admin
-from firebase_admin import credentials, auth, firestore, exceptions
 import os
+from app.firebase_init import db_ref, storage_bucket, auth_client
 from functools import wraps
 import json
 import smtplib
