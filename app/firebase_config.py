@@ -2,6 +2,8 @@
 from flask import Flask, request, jsonify, session, redirect, url_for, send_from_directory
 from flask_cors import CORS
 import os
+import firebase_admin
+from firebase_admin import credentials, auth, firestore, storage
 from app.firebase_init import db_ref, storage_bucket, auth_client
 from functools import wraps
 import json
