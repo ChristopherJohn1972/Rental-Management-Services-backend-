@@ -1,11 +1,11 @@
-# crud.py
+# app/crud.py
 from fastapi import HTTPException, status, Depends
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime, date, timedelta
 import uuid
 import json
-from firebase_admin import db, auth, storage
 from .auth import get_current_user
+from app.firebase_init import db_ref, storage_bucket, auth_client
 from .models import (
     UserRole, UnitStatus, MaintenanceStatus, PaymentStatus, UrgencyLevel,
     UserCreate, UserResponse, TenantProfile, MaintenanceRequest, 
@@ -15,18 +15,24 @@ from .models import (
 )
 
 class CRUD:
+    # ===== helper =====
+    @staticmethod
+    def _ensure_db():
+        if db_ref is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Database not initialized (db_ref is None). Check Firebase credentials and FIREBASE_DB_URL."
+            )
+
     # ===== DASHBOARD OPERATIONS =====
-    
     @staticmethod
     async def get_user_dashboard(user_id: str, user_role: UserRole) -> Dict[str, Any]:
-        """
-        Get dashboard data for regular users (tenants)
-        """
+        CRUD._ensure_db()
         try:
             dashboard_data = {}
             
             # Get tenant profile
-            tenant_ref = db.reference(f'tenants/{user_id}')
+            tenant_ref = db_ref.child(f'tenants/{user_id}')
             tenant_data = tenant_ref.get() or {}
             dashboard_data['profile'] = tenant_data.get('personal_info', {})
             
@@ -34,25 +40,25 @@ class CRUD:
             dashboard_data['lease'] = tenant_data.get('lease_info', {})
             
             # Get recent maintenance requests (last 5)
-            requests_ref = db.reference('maintenance_requests')
+            requests_ref = db_ref.child('maintenance_requests')
             user_requests = requests_ref.order_by_child('tenant_id').equal_to(user_id)\
                                       .limit_to_last(5).get() or {}
             dashboard_data['maintenance_requests'] = [
-                {'id': req_id, **req_data} for req_id, req_data in user_requests.items()
+                {'id': req_id, **req_data} for req_id, req_data in (user_requests.items() if isinstance(user_requests, dict) else [])
             ]
             
             # Get payment status
-            payments_ref = db.reference('payments')
+            payments_ref = db_ref.child('payments')
             user_payments = payments_ref.order_by_child('tenant_id').equal_to(user_id)\
                                       .limit_to_last(3).get() or {}
             dashboard_data['payments'] = [
-                {'id': pay_id, **pay_data} for pay_id, pay_data in user_payments.items()
+                {'id': pay_id, **pay_data} for pay_id, pay_data in (user_payments.items() if isinstance(user_payments, dict) else [])
             ]
             
             # Calculate upcoming rent due
             if tenant_data.get('lease_info') and tenant_data['lease_info'].get('rent_amount'):
                 today = datetime.now()
-                next_month = today.replace(day=1) + timedelta(days=32)
+                next_month = (today.replace(day=1) + timedelta(days=32))
                 first_of_month = next_month.replace(day=1)
                 
                 dashboard_data['upcoming_rent'] = {
@@ -62,9 +68,9 @@ class CRUD:
                 }
             
             # Get unread notifications count
-            notif_ref = db.reference(f'notifications/{user_id}')
+            notif_ref = db_ref.child(f'notifications/{user_id}')
             notifications = notif_ref.get() or {}
-            unread_count = sum(1 for notif in notifications.values() if not notif.get('read', False))
+            unread_count = sum(1 for notif in notifications.values() if not notif.get('read', False)) if isinstance(notifications, dict) else 0
             dashboard_data['unread_notifications'] = unread_count
             
             return dashboard_data
@@ -77,22 +83,19 @@ class CRUD:
 
     @staticmethod
     async def get_staff_dashboard(staff_id: str) -> Dict[str, Any]:
-        """
-        Get dashboard data for staff members
-        """
+        CRUD._ensure_db()
         try:
             dashboard_data = {}
             
             # Get assigned maintenance tasks
-            requests_ref = db.reference('maintenance_requests')
-            assigned_requests = requests_ref.order_by_child('assigned_to').equal_to(staff_id)\
-                                          .get() or {}
+            requests_ref = db_ref.child('maintenance_requests')
+            assigned_requests = requests_ref.order_by_child('assigned_to').equal_to(staff_id).get() or {}
             
             # Filter by status
             open_requests = {k: v for k, v in assigned_requests.items() 
-                           if v.get('status') in ['submitted', 'in_progress']}
+                           if v.get('status') in ['submitted', 'in_progress']} if isinstance(assigned_requests, dict) else {}
             resolved_requests = {k: v for k, v in assigned_requests.items() 
-                               if v.get('status') in ['resolved', 'closed']}
+                               if v.get('status') in ['resolved', 'closed']} if isinstance(assigned_requests, dict) else {}
             
             dashboard_data['assigned_tasks'] = {
                 'open': [{'id': req_id, **req_data} for req_id, req_data in open_requests.items()],
@@ -104,7 +107,7 @@ class CRUD:
             # Get recent activity (tasks updated in last 7 days)
             week_ago = (datetime.now() - timedelta(days=7)).isoformat()
             recent_activity = {}
-            for req_id, req_data in assigned_requests.items():
+            for req_id, req_data in (assigned_requests.items() if isinstance(assigned_requests, dict) else []):
                 if req_data.get('updated_at', '') >= week_ago:
                     recent_activity[req_id] = req_data
             
@@ -113,14 +116,14 @@ class CRUD:
             ]
             
             # Get performance metrics
-            completed_this_month = sum(1 for req in assigned_requests.values() 
+            completed_this_month = sum(1 for req in (assigned_requests.values() if isinstance(assigned_requests, dict) else []) 
                                      if req.get('status') in ['resolved', 'closed'] and
                                      req.get('updated_at', '').startswith(datetime.now().strftime('%Y-%m')))
             
             dashboard_data['performance'] = {
                 'tasks_completed_month': completed_this_month,
-                'total_assigned': len(assigned_requests),
-                'completion_rate': (completed_this_month / len(assigned_requests) * 100) if assigned_requests else 0
+                'total_assigned': len(assigned_requests) if isinstance(assigned_requests, dict) else 0,
+                'completion_rate': (completed_this_month / len(assigned_requests) * 100) if assigned_requests and isinstance(assigned_requests, dict) else 0
             }
             
             return dashboard_data
@@ -133,14 +136,12 @@ class CRUD:
 
     @staticmethod
     async def get_admin_dashboard() -> Dict[str, Any]:
-        """
-        Get dashboard data for admin/landlord
-        """
+        CRUD._ensure_db()
         try:
             dashboard_data = {}
             
             # Get all properties and units
-            properties_ref = db.reference('properties')
+            properties_ref = db_ref.child('properties')
             properties = properties_ref.get() or {}
             
             # Calculate occupancy rates and rent statistics
@@ -149,20 +150,20 @@ class CRUD:
             total_rent = 0
             collected_rent = 0
             
-            for prop_id, prop_data in properties.items():
+            for prop_id, prop_data in (properties.items() if isinstance(properties, dict) else []):
                 units = prop_data.get('units', {})
-                total_units += len(units)
-                occupied_units += sum(1 for unit in units.values() 
+                total_units += len(units) if isinstance(units, dict) else 0
+                occupied_units += sum(1 for unit in (units.values() if isinstance(units, dict) else []) 
                                     if unit.get('status') == 'occupied')
                 
                 # Get rent data for occupied units
-                for unit_id, unit_data in units.items():
+                for unit_id, unit_data in (units.items() if isinstance(units, dict) else []):
                     if unit_data.get('status') == 'occupied':
                         # Find tenant for this unit and get rent amount
-                        tenants_ref = db.reference('tenants')
-                        tenants = tenants_ref.order_by_child('lease_info/unit_id')\
-                                           .equal_to(unit_id).get() or {}
-                        for tenant_id, tenant_data in tenants.items():
+                        tenants_ref = db_ref.child('tenants')
+                        # The query below assumes you stored lease_info with unit_id value
+                        tenants = tenants_ref.order_by_child('lease_info/unit_id').equal_to(unit_id).get() or {}
+                        for tenant_id, tenant_data in (tenants.items() if isinstance(tenants, dict) else []):
                             if tenant_data.get('lease_info', {}).get('unit_id') == unit_id:
                                 rent_amount = tenant_data['lease_info'].get('rent_amount', 0)
                                 total_rent += rent_amount
@@ -170,27 +171,27 @@ class CRUD:
             
             # Get payments for current month
             current_month = datetime.now().strftime('%Y-%m')
-            payments_ref = db.reference('payments')
+            payments_ref = db_ref.child('payments')
             all_payments = payments_ref.get() or {}
             
             monthly_payments = []
-            for pay_id, pay_data in all_payments.items():
+            for pay_id, pay_data in (all_payments.items() if isinstance(all_payments, dict) else []):
                 if pay_data.get('paid_date', '').startswith(current_month) and pay_data.get('status') == 'paid':
                     monthly_payments.append(pay_data)
                     collected_rent += pay_data.get('amount', 0)
             
             # Get maintenance stats
-            requests_ref = db.reference('maintenance_requests')
+            requests_ref = db_ref.child('maintenance_requests')
             all_requests = requests_ref.get() or {}
             
-            open_requests = sum(1 for req in all_requests.values() 
+            open_requests = sum(1 for req in (all_requests.values() if isinstance(all_requests, dict) else []) 
                               if req.get('status') in ['submitted', 'in_progress'])
-            resolved_this_month = sum(1 for req in all_requests.values() 
+            resolved_this_month = sum(1 for req in (all_requests.values() if isinstance(all_requests, dict) else []) 
                                     if req.get('status') in ['resolved', 'closed'] and
                                     req.get('updated_at', '').startswith(current_month))
             
             dashboard_data['overview'] = {
-                'total_properties': len(properties),
+                'total_properties': len(properties) if isinstance(properties, dict) else 0,
                 'total_units': total_units,
                 'occupied_units': occupied_units,
                 'vacancy_rate': ((total_units - occupied_units) / total_units * 100) if total_units else 0,
@@ -207,7 +208,7 @@ class CRUD:
             recent_activities = []
             
             # Recent payments
-            for pay_id, pay_data in all_payments.items():
+            for pay_id, pay_data in (all_payments.items() if isinstance(all_payments, dict) else []):
                 if pay_data.get('paid_date', '') >= week_ago:
                     recent_activities.append({
                         'type': 'payment',
@@ -217,7 +218,7 @@ class CRUD:
                     })
             
             # Recent maintenance requests
-            for req_id, req_data in all_requests.items():
+            for req_id, req_data in (all_requests.items() if isinstance(all_requests, dict) else []):
                 if req_data.get('created_at', '') >= week_ago:
                     recent_activities.append({
                         'type': 'maintenance',
@@ -227,7 +228,7 @@ class CRUD:
                     })
             
             # Sort by timestamp and take last 10
-            recent_activities.sort(key=lambda x: x['timestamp'], reverse=True)
+            recent_activities.sort(key=lambda x: x['timestamp'] or "", reverse=True)
             dashboard_data['recent_activities'] = recent_activities[:10]
             
             # Get financial KPIs
@@ -242,13 +243,12 @@ class CRUD:
             )
 
     # ===== PROPERTY & UNIT MANAGEMENT =====
-    
     @staticmethod
     async def create_property(property_data: PropertyCreate) -> Property:
-        """Create a new property"""
+        CRUD._ensure_db()
         try:
             property_id = str(uuid.uuid4())
-            property_ref = db.reference(f'properties/{property_id}')
+            property_ref = db_ref.child('properties').child(property_id)
             
             property_obj = Property(
                 id=property_id,
@@ -257,7 +257,7 @@ class CRUD:
                 updated_at=datetime.now().isoformat()
             )
             
-            property_ref.set(property_obj.dict())
+            property_ref.set(property_obj.__dict__)
             return property_obj
             
         except Exception as e:
@@ -271,13 +271,12 @@ class CRUD:
         filters: Optional[Dict[str, Any]] = None,
         search: Optional[str] = None
     ) -> List[Property]:
-        """Get properties with optional filtering and search"""
+        CRUD._ensure_db()
         try:
-            properties_ref = db.reference('properties')
-            properties = properties_ref.get() or {}
+            properties = db_ref.child('properties').get() or {}
             
             properties_list = []
-            for prop_id, prop_data in properties.items():
+            for prop_id, prop_data in (properties.items() if isinstance(properties, dict) else []):
                 property_obj = Property(id=prop_id, **prop_data)
                 
                 # Apply filters
@@ -293,9 +292,9 @@ class CRUD:
                 # Apply search
                 if search:
                     search_lower = search.lower()
-                    if (search_lower not in property_obj.name.lower() and
-                        search_lower not in property_obj.address.lower() and
-                        search_lower not in property_obj.city.lower()):
+                    if (search_lower not in (property_obj.name or "").lower() and
+                        search_lower not in (property_obj.address or "").lower() and
+                        search_lower not in (property_obj.city or "").lower()):
                         continue
                 
                 properties_list.append(property_obj)
@@ -310,15 +309,15 @@ class CRUD:
 
     @staticmethod
     async def add_unit_to_property(property_id: str, unit_data: UnitCreate) -> Unit:
-        """Add a unit to a property"""
+        CRUD._ensure_db()
         try:
             # Verify property exists
-            property_ref = db.reference(f'properties/{property_id}')
+            property_ref = db_ref.child('properties').child(property_id)
             if not property_ref.get():
                 raise HTTPException(status_code=404, detail="Property not found")
             
             unit_id = f"{property_id}_{unit_data.unit_number}"
-            unit_ref = db.reference(f'properties/{property_id}/units/{unit_id}')
+            unit_ref = db_ref.child('properties').child(property_id).child('units').child(unit_id)
             
             unit_obj = Unit(
                 id=unit_id,
@@ -329,7 +328,7 @@ class CRUD:
                 updated_at=datetime.now().isoformat()
             )
             
-            unit_ref.set(unit_obj.dict())
+            unit_ref.set(unit_obj.__dict__)
             return unit_obj
             
         except Exception as e:
@@ -343,25 +342,23 @@ class CRUD:
         property_id: Optional[str] = None,
         status: Optional[UnitStatus] = None
     ) -> List[Unit]:
-        """Get units with optional filtering"""
+        CRUD._ensure_db()
         try:
             units_list = []
             
             if property_id:
                 # Get units for specific property
-                units_ref = db.reference(f'properties/{property_id}/units')
-                units = units_ref.get() or {}
-                for unit_id, unit_data in units.items():
+                units = db_ref.child('properties').child(property_id).child('units').get() or {}
+                for unit_id, unit_data in (units.items() if isinstance(units, dict) else []):
                     if status and unit_data.get('status') != status.value:
                         continue
                     units_list.append(Unit(id=unit_id, property_id=property_id, **unit_data))
             else:
                 # Get all units across all properties
-                properties_ref = db.reference('properties')
-                properties = properties_ref.get() or {}
-                for prop_id, prop_data in properties.items():
-                    units = prop_data.get('units', {})
-                    for unit_id, unit_data in units.items():
+                properties = db_ref.child('properties').get() or {}
+                for prop_id, prop_data in (properties.items() if isinstance(properties, dict) else []):
+                    units = prop_data.get('units', {}) or {}
+                    for unit_id, unit_data in (units.items() if isinstance(units, dict) else []):
                         if status and unit_data.get('status') != status.value:
                             continue
                         units_list.append(Unit(id=unit_id, property_id=prop_id, **unit_data))
@@ -375,19 +372,17 @@ class CRUD:
             )
 
     # ===== TENANT MANAGEMENT =====
-    
     @staticmethod
     async def get_tenants(
         property_id: Optional[str] = None,
         unit_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Get tenants with optional filtering"""
+        CRUD._ensure_db()
         try:
-            tenants_ref = db.reference('tenants')
-            all_tenants = tenants_ref.get() or {}
+            all_tenants = db_ref.child('tenants').get() or {}
             
             tenants_list = []
-            for tenant_id, tenant_data in all_tenants.items():
+            for tenant_id, tenant_data in (all_tenants.items() if isinstance(all_tenants, dict) else []):
                 lease_info = tenant_data.get('lease_info', {})
                 
                 # Apply filters
@@ -397,8 +392,7 @@ class CRUD:
                     continue
                 
                 # Get user info
-                user_ref = db.reference(f'users/{tenant_id}')
-                user_data = user_ref.get() or {}
+                user_data = db_ref.child('users').child(tenant_id).get() or {}
                 
                 tenant_info = {
                     'id': tenant_id,
@@ -425,18 +419,18 @@ class CRUD:
         filename: str,
         lease_info: LeaseInfo
     ) -> Dict[str, Any]:
-        """Upload lease document and update tenant lease info"""
+        CRUD._ensure_db()
         try:
             # Upload to Firebase Storage
-            bucket = storage.bucket()
+            if not storage_bucket:
+                raise HTTPException(status_code=500, detail="Storage bucket not configured")
+            bucket = storage_bucket
             blob = bucket.blob(f'leases/{tenant_id}/{filename}')
             blob.upload_from_string(file_data, content_type='application/pdf')
-            
-            # Make the file publicly accessible
             blob.make_public()
             
             # Update tenant lease info
-            lease_ref = db.reference(f'tenants/{tenant_id}/lease_info')
+            lease_ref = db_ref.child(f'tenants/{tenant_id}/lease_info')
             lease_data = {
                 **lease_info.dict(),
                 'lease_document_url': blob.public_url,
@@ -449,14 +443,15 @@ class CRUD:
                 unit_parts = lease_info.unit_id.split('_')
                 if len(unit_parts) == 2:
                     prop_id, unit_num = unit_parts
-                    unit_ref = db.reference(f'properties/{prop_id}/units/{lease_info.unit_id}/status')
-                    unit_ref.set(UnitStatus.OCCUPIED.value)
+                    db_ref.child('properties').child(prop_id).child('units').child(lease_info.unit_id).child('status').set(UnitStatus.OCCUPIED.value)
             
             return {
                 'document_url': blob.public_url,
                 'lease_info': lease_data
             }
             
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -464,31 +459,27 @@ class CRUD:
             )
 
     # ===== RENT & PAYMENTS =====
-    
     @staticmethod
     async def get_rent_due_report() -> List[Dict[str, Any]]:
-        """Get report of rent due and arrears"""
+        CRUD._ensure_db()
         try:
-            tenants_ref = db.reference('tenants')
-            all_tenants = tenants_ref.get() or {}
-            payments_ref = db.reference('payments')
-            all_payments = payments_ref.get() or {}
+            all_tenants = db_ref.child('tenants').get() or {}
+            all_payments = db_ref.child('payments').get() or {}
             
             rent_due_report = []
             today = datetime.now().date()
             
-            for tenant_id, tenant_data in all_tenants.items():
+            for tenant_id, tenant_data in (all_tenants.items() if isinstance(all_tenants, dict) else []):
                 lease_info = tenant_data.get('lease_info', {})
                 if not lease_info:
                     continue
                 
-                # Calculate rent due status
                 rent_amount = lease_info.get('rent_amount', 0)
                 unit_id = lease_info.get('unit_id')
                 
                 # Get payment history for this tenant
                 tenant_payments = {}
-                for pay_id, pay_data in all_payments.items():
+                for pay_id, pay_data in (all_payments.items() if isinstance(all_payments, dict) else []):
                     if pay_data.get('tenant_id') == tenant_id:
                         tenant_payments[pay_id] = pay_data
                 
@@ -518,24 +509,22 @@ class CRUD:
             )
 
     # ===== MAINTENANCE TASK MANAGEMENT =====
-    
     @staticmethod
     async def assign_maintenance_task(
         request_id: str, 
         staff_id: str, 
         priority: str = "medium"
     ) -> MaintenanceRequest:
-        """Assign maintenance task to staff member"""
+        CRUD._ensure_db()
         try:
-            request_ref = db.reference(f'maintenance_requests/{request_id}')
+            request_ref = db_ref.child(f'maintenance_requests/{request_id}')
             request_data = request_ref.get()
             
             if not request_data:
                 raise HTTPException(status_code=404, detail="Maintenance request not found")
             
             # Verify staff exists
-            staff_ref = db.reference(f'users/{staff_id}')
-            staff_data = staff_ref.get()
+            staff_data = db_ref.child(f'users/{staff_id}').get()
             if not staff_data or staff_data.get('role') != 'staff':
                 raise HTTPException(status_code=404, detail="Staff member not found")
             
@@ -584,9 +573,9 @@ class CRUD:
         staff_id: str,
         notes: Optional[str] = None
     ) -> MaintenanceRequest:
-        """Update maintenance request status"""
+        CRUD._ensure_db()
         try:
-            request_ref = db.reference(f'maintenance_requests/{request_id}')
+            request_ref = db_ref.child(f'maintenance_requests/{request_id}')
             request_data = request_ref.get()
             
             if not request_data:
@@ -627,10 +616,9 @@ class CRUD:
             )
 
     # ===== REPORTS & ANALYTICS =====
-    
     @staticmethod
     async def generate_report(report_type: str, filters: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate various reports for admin dashboard"""
+        CRUD._ensure_db()
         try:
             if report_type == 'financial':
                 return await CRUD._generate_financial_report(filters)
@@ -649,44 +637,41 @@ class CRUD:
 
     @staticmethod
     async def get_kpi_stats() -> KPIStats:
-        """Get key performance indicators for admin dashboard"""
+        CRUD._ensure_db()
         try:
             # Calculate various KPIs
-            properties_ref = db.reference('properties')
-            properties = properties_ref.get() or {}
+            properties = db_ref.child('properties').get() or {}
             
             total_units = 0
             occupied_units = 0
             vacant_units = 0
             total_rent = 0
             
-            for prop_id, prop_data in properties.items():
+            for prop_id, prop_data in (properties.items() if isinstance(properties, dict) else []):
                 units = prop_data.get('units', {})
-                total_units += len(units)
-                for unit in units.values():
+                total_units += len(units) if isinstance(units, dict) else 0
+                for unit in (units.values() if isinstance(units, dict) else []):
                     if unit.get('status') == 'occupied':
                         occupied_units += 1
                     elif unit.get('status') == 'vacant':
                         vacant_units += 1
             
             # Get financial data
-            payments_ref = db.reference('payments')
-            payments = payments_ref.get() or {}
+            payments = db_ref.child('payments').get() or {}
             
             current_month = datetime.now().strftime('%Y-%m')
             monthly_revenue = 0
-            for payment in payments.values():
+            for payment in (payments.values() if isinstance(payments, dict) else []):
                 if (payment.get('paid_date', '').startswith(current_month) and 
                     payment.get('status') == 'paid'):
                     monthly_revenue += payment.get('amount', 0)
             
             # Get maintenance costs (this would need actual cost data)
-            requests_ref = db.reference('maintenance_requests')
-            requests = requests_ref.get() or {}
+            requests = db_ref.child('maintenance_requests').get() or {}
             maintenance_costs = 0  # Placeholder
             
             return KPIStats(
-                total_properties=len(properties),
+                total_properties=len(properties) if isinstance(properties, dict) else 0,
                 total_units=total_units,
                 occupancy_rate=(occupied_units / total_units * 100) if total_units else 0,
                 vacancy_rate=(vacant_units / total_units * 100) if total_units else 0,
@@ -702,30 +687,25 @@ class CRUD:
             )
 
     # ===== PRIVATE HELPER METHODS =====
-    
     @staticmethod
     async def _calculate_financial_kpis() -> Dict[str, Any]:
-        """Calculate financial KPIs for admin dashboard"""
         # Implementation for financial calculations
-        pass
-    
+        return {}
+
     @staticmethod
     async def _generate_financial_report(filters: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate financial report"""
         # Implementation for financial reports
-        pass
-    
+        return {}
+
     @staticmethod
     async def _generate_occupancy_report(filters: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate occupancy report"""
         # Implementation for occupancy reports
-        pass
-    
+        return {}
+
     @staticmethod
     async def _generate_maintenance_report(filters: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate maintenance report"""
         # Implementation for maintenance reports
-        pass
+        return {}
 
 # Create global instance
 crud = CRUD()
