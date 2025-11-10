@@ -2,8 +2,6 @@
 from flask import Flask, request, jsonify, session, redirect, url_for, send_from_directory
 from flask_cors import CORS
 import os
-import firebase_admin
-from firebase_admin import credentials, auth, firestore, storage
 from app.firebase_init import db_ref, storage_bucket, auth_client
 from functools import wraps
 import json
@@ -14,10 +12,7 @@ import random
 import datetime
 import re
 
-# === REMOVE THIS PROBLEMATIC IMPORT ===
-# from .auth import requires_role, validate_password, send_otp_email
-
-# === ADD THESE PLACEHOLDER FUNCTIONS INSTEAD ===
+# === PLACEHOLDER FUNCTIONS ===
 def requires_role(required_role):
     """Temporary placeholder for requires_role decorator"""
     def decorator(f):
@@ -68,41 +63,6 @@ app = Flask(__name__, static_folder='static')
 app.secret_key = os.urandom(24)
 CORS(app, supports_credentials=True, origins=["http://localhost:3000", "http://127.0.0.1:3000"])
 
-# Initialize Firebase
-try:
-    # For production, use environment variable or service account key
-    if os.path.exists('serviceAccountKey.json'):
-        firebase_cred = credentials.Certificate('serviceAccountKey.json')
-        firebase_admin.initialize_app(firebase_cred)
-        print("Firebase initialized successfully")
-    else:
-        # Create a mock service account for development
-        service_account_info = {
-            "type": "service_account",
-            "project_id": "rental-management-dev",
-            "private_key_id": "mock-private-key-id",
-            "private_key": "-----BEGIN PRIVATE KEY-----\nMOCK_PRIVATE_KEY\n-----END PRIVATE KEY-----\n",
-            "client_email": "firebase-adminsdk@rental-management-dev.iam.gserviceaccount.com",
-            "client_id": "mock-client-id",
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-            "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk%40rental-management-dev.iam.gserviceaccount.com"
-        }
-        firebase_cred = credentials.Certificate(service_account_info)
-        firebase_admin.initialize_app(firebase_cred)
-        print("Firebase initialized with mock credentials for development")
-except Exception as e:
-    print(f"Firebase initialization error: {e}")
-    print("Using mock authentication and database")
-
-# Initialize Firestore
-try:
-    db = firestore.client()
-except:
-    db = None
-    print("Using mock database for development")
-
 # Configuration
 app.config['SECRET_KEY'] = 'rental-management-secret-key-2023'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -114,6 +74,9 @@ SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
 SMTP_PORT = int(os.environ.get('SMTP_PORT', 587))
 SMTP_USERNAME = os.environ.get('SMTP_USERNAME', 'your-email@gmail.com')
 SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', 'your-app-password')
+
+# Development flag
+IS_DEVELOPMENT = os.environ.get('FLASK_ENV') == 'development'
 
 # Mock data for demo (in production, use Firestore)
 mock_users = {
@@ -351,7 +314,12 @@ def tenant_dashboard_page():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    return jsonify({"status": "OK", "message": "Rental Management API is running"}), 200
+    return jsonify({
+        "status": "OK", 
+        "message": "Rental Management API is running",
+        "environment": "development" if IS_DEVELOPMENT else "production",
+        "firebase_initialized": db_ref is not None
+    }), 200
 
 @app.route('/api/register', methods=['POST'])
 def register():
