@@ -1,4 +1,4 @@
-# app/models.py
+﻿# app/models.py
 from enum import Enum
 from datetime import datetime
 from flask import current_app
@@ -133,6 +133,13 @@ class MaintenanceStatus(str, Enum):
 
 class PaymentStatus(str, Enum):
     PENDING = "pending"
+
+class UrgencyLevel(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
     PAID = "paid"
     OVERDUE = "overdue"
     CANCELLED = "cancelled"
@@ -163,3 +170,4 @@ class Payment:
         except Exception as e:
             current_app.logger.error(f"Error getting user payments: {e}")
             return {}
+

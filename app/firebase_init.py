@@ -1,4 +1,4 @@
-import os
+﻿import os
 import json
 import logging
 import firebase_admin
@@ -56,7 +56,15 @@ if firebase_admin._apps:
         db_ref = None
 
     try:
-        storage_bucket = storage.bucket() if FIREBASE_STORAGE_BUCKET else None
+try:
+    if FIREBASE_STORAGE_BUCKET:
+        storage_bucket = storage.bucket(FIREBASE_STORAGE_BUCKET)
+    else:
+        storage_bucket = None
+        print("Warning: No Firebase storage bucket configured")
+except Exception as e:
+    print(f"Warning: Could not initialize Firebase storage: {e}")
+    storage_bucket = None
     except Exception as e:
         logger.exception("Failed to get storage bucket object: %s", e)
         storage_bucket = None
