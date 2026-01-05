@@ -111,6 +111,31 @@ class MaintenanceRequest:
         except Exception as e:
             current_app.logger.error(f"Error getting user maintenance requests: {e}")
             return {}
+# Add these to app/models.py after UserRole
+
+class PropertyType(str, Enum):
+    APARTMENT = "apartment"
+    HOUSE = "house"
+    CONDO = "condo"
+    TOWNHOUSE = "townhouse"
+
+class UnitStatus(str, Enum):
+    VACANT = "vacant"
+    OCCUPIED = "occupied"
+    UNDER_MAINTENANCE = "under_maintenance"
+    RESERVED = "reserved"
+
+class MaintenanceStatus(str, Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+class PaymentStatus(str, Enum):
+    PENDING = "pending"
+    PAID = "paid"
+    OVERDUE = "overdue"
+    CANCELLED = "cancelled"
 
 # -----------------------------
 # Payment Model
