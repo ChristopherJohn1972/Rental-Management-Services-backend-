@@ -1,4 +1,4 @@
-services:
+﻿services:
   - type: web
     name: rental-management-api
     env: python
@@ -7,10 +7,28 @@ services:
     pythonVersion: "3.12.10"
     buildCommand: |
       python -m pip install --upgrade pip setuptools wheel
-      pip install -r requirements.txt --no-build-isolation --only-binary=:all:
-    startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
+      pip install -r requirements.txt
+    startCommand: uvicorn app.firebase_config:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: PORT
+        value: 10000
       - key: PYTHON_VERSION
         value: 3.12.10
-      - key: PIP_NO_BUILD_ISOLATION
-        value: "false"
+      - key: FIREBASE_TYPE
+        value: service_account
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_CLIENT_ID
+        sync: false
+      - key: FIREBASE_DATABASE_URL
+        sync: false
+      - key: FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: FIREBASE_WEB_API_KEY
+        sync: false

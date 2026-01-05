@@ -113,32 +113,17 @@ maintenance = CRUDMaintenance()
 payment = CRUDPayment()
 
 
-# ====================================
-# SIMPLE CRUD COMPATIBILITY OBJECT
-# ====================================
 
-# Create a simple object that main.py can import
-crud = type('CrudObject', (), {
+# ========================
+# SIMPLE CRUD FIX
+# ========================
+
+# Create a simple crud object using type()
+crud = type('CRUD', (), {
     'user': user,
-    'property': property_crud,
+    'property': property_crud, 
     'maintenance': maintenance,
     'payment': payment
 })()
 
-# Add method stubs if needed (these can be filled in later)
-def get_user_dashboard(user_id, role):
-    '''Stub for user dashboard'''
-    return {'message': 'Method not implemented'}
-
-def get_staff_dashboard(user_id):
-    '''Stub for staff dashboard'''
-    return {'message': 'Method not implemented'}
-
-def get_admin_dashboard():
-    '''Stub for admin dashboard'''
-    return {'message': 'Method not implemented'}
-
-# Attach stubs to crud object
-crud.get_user_dashboard = get_user_dashboard
-crud.get_staff_dashboard = get_staff_dashboard
-crud.get_admin_dashboard = get_admin_dashboard
+# That's it! main.py can now import 'crud'

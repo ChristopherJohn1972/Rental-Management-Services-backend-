@@ -113,32 +113,109 @@ maintenance = CRUDMaintenance()
 payment = CRUDPayment()
 
 
-# ====================================
-# SIMPLE CRUD COMPATIBILITY OBJECT
-# ====================================
+# BACKWARD COMPATIBILITY
 
-# Create a simple object that main.py can import
-crud = type('CrudObject', (), {
-    'user': user,
-    'property': property_crud,
-    'maintenance': maintenance,
-    'payment': payment
-})()
 
-# Add method stubs if needed (these can be filled in later)
-def get_user_dashboard(user_id, role):
-    '''Stub for user dashboard'''
-    return {'message': 'Method not implemented'}
+# Create a crud object for backward compatibility with main.py
+class CRUDCompat:
+    """Compatibility wrapper for existing code expecting 'crud'"""
+    
+    @property
+    def user(self):
+        return user
+    
+    @property
+    def property(self):
+        return property_crud
+    
+    @property 
+    def maintenance(self):
+        return maintenance
+    
+    @property
+    def payment(self):
+        return payment
+    
+    # Add method proxies if your main.py calls specific methods
+    # Example: crud.get_user_dashboard() -> user.get_user_dashboard()
+    def get_user_dashboard(self, user_id, role):
+        return user.get_user_dashboard(user_id, role)
+    
+    def get_staff_dashboard(self, user_id):
+        return user.get_staff_dashboard(user_id)
+    
+    def get_admin_dashboard(self):
+        return user.get_admin_dashboard()
+    
+    def get_properties(self, filters=None, search=None):
+        return property_crud.get_properties(filters, search)
+    
+    def create_property(self, property_data):
+        return property_crud.create_property(property_data)
+    
+    def get_maintenance_requests(self, tenant_id=None, status=None):
+        return maintenance.get_maintenance_requests(tenant_id, status)
+    
+    def create_maintenance_request(self, request_data, user_id, unit_id):
+        return maintenance.create_maintenance_request(request_data, user_id, unit_id)
+    
+    def get_payments(self, tenant_id=None):
+        return payment.get_payments(tenant_id)
+    
+    def get_tenants(self, property_id=None, unit_id=None):
+        return user.get_tenants(property_id, unit_id)
 
-def get_staff_dashboard(user_id):
-    '''Stub for staff dashboard'''
-    return {'message': 'Method not implemented'}
+# Create the crud instance
+crud = CRUDCompat()
 
-def get_admin_dashboard():
-    '''Stub for admin dashboard'''
-    return {'message': 'Method not implemented'}
+# ========================
+# SIMPLE CRUD COMPATIBILITY
+# ========================
 
-# Attach stubs to crud object
-crud.get_user_dashboard = get_user_dashboard
-crud.get_staff_dashboard = get_staff_dashboard
-crud.get_admin_dashboard = get_admin_dashboard
+# Create a simple namespace object for backward compatibility
+class SimpleCRUD:
+    def __init__(self):
+        self.user = user
+        self.property = property_crud
+        self.maintenance = maintenance
+        self.payment = payment
+    
+    # Proxy methods for dashboard calls
+    def get_user_dashboard(self, user_id, role):
+        """Proxy for user dashboard"""
+        return self.user.get_user_dashboard(user_id, role)
+    
+    def get_staff_dashboard(self, user_id):
+        """Proxy for staff dashboard"""
+        return self.user.get_staff_dashboard(user_id)
+    
+    def get_admin_dashboard(self):
+        """Proxy for admin dashboard"""
+        return self.user.get_admin_dashboard()
+    
+    def get_properties(self, filters=None, search=None):
+        """Proxy for getting properties"""
+        return self.property.get_properties(filters, search)
+    
+    def create_property(self, property_data):
+        """Proxy for creating property"""
+        return self.property.create_property(property_data)
+    
+    def get_maintenance_requests(self, tenant_id=None, status=None):
+        """Proxy for maintenance requests"""
+        return self.maintenance.get_maintenance_requests(tenant_id, status)
+    
+    def create_maintenance_request(self, request_data, user_id, unit_id):
+        """Proxy for creating maintenance request"""
+        return self.maintenance.create_maintenance_request(request_data, user_id, unit_id)
+    
+    def get_payments(self, tenant_id=None):
+        """Proxy for payments"""
+        return self.payment.get_payments(tenant_id)
+    
+    def get_tenants(self, property_id=None, unit_id=None):
+        """Proxy for tenants"""
+        return self.user.get_tenants(property_id, unit_id)
+
+# Create the crud instance
+crud = SimpleCRUD()
