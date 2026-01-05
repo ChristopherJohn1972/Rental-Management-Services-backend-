@@ -1,21 +1,96 @@
-﻿# app/models.py
+﻿# app/models.py - WITH ALL ENUM VALUES
 from enum import Enum
 from datetime import datetime
 from flask import current_app
 from typing import Optional, Dict
-# Make sure db_ref points to your Firebase Realtime Database reference
 from app.firebase_init import db_ref 
 
-# -----------------------------
-# Enums
-# -----------------------------
+# ====================
+# ENUMS
+# ====================
+
 class UserRole(str, Enum):
     ADMIN = "admin"
     TENANT = "tenant"
 
-# -----------------------------
-# User Model
-# -----------------------------
+class PropertyType(str, Enum):
+    APARTMENT = "apartment"
+    HOUSE = "house"
+    CONDO = "condo"
+    TOWNHOUSE = "townhouse"
+
+class UnitStatus(str, Enum):
+    VACANT = "vacant"
+    OCCUPIED = "occupied"
+    UNDER_MAINTENANCE = "under_maintenance"
+    RESERVED = "reserved"
+
+class MaintenanceStatus(str, Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+class PaymentStatus(str, Enum):
+    PENDING = "pending"
+    PAID = "paid"
+    OVERDUE = "overdue"
+    CANCELLED = "cancelled"
+
+class UrgencyLevel(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+# ====================
+# PYDANTIC MODELS
+# ====================
+from pydantic import BaseModel, EmailStr
+from typing import List
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    first_name: str
+    last_name: str
+    phone: Optional[str] = None
+    role: UserRole = UserRole.TENANT
+
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    role: Optional[UserRole] = None
+
+class PropertyCreate(BaseModel):
+    name: str
+    address: str
+    city: str
+    state: str
+    zip_code: str
+    type: PropertyType
+    total_units: int
+    year_built: Optional[int] = None
+    amenities: List[str] = []
+
+class MaintenanceRequestCreate(BaseModel):
+    unit_id: str
+    issue: str
+    description: str
+    urgency: UrgencyLevel = UrgencyLevel.MEDIUM
+
+class PaymentCreate(BaseModel):
+    tenant_id: str
+    amount: float
+    payment_method: str
+    reference: str
+
+# ====================
+# DATABASE MODELS (original code)
+# ====================
+
 class User:
     @staticmethod
     def create(user_data: Dict):
@@ -57,9 +132,6 @@ class User:
             current_app.logger.error(f"Error updating user: {e}")
             return False
 
-# -----------------------------
-# Property Model
-# -----------------------------
 class Property:
     @staticmethod
     def create(property_data: Dict):
@@ -84,9 +156,6 @@ class Property:
             current_app.logger.error(f"Error getting properties: {e}")
             return {}
 
-# -----------------------------
-# MaintenanceRequest Model
-# -----------------------------
 class MaintenanceRequest:
     @staticmethod
     def create(request_data: Dict):
@@ -111,42 +180,7 @@ class MaintenanceRequest:
         except Exception as e:
             current_app.logger.error(f"Error getting user maintenance requests: {e}")
             return {}
-# Add these to app/models.py after UserRole
 
-class PropertyType(str, Enum):
-    APARTMENT = "apartment"
-    HOUSE = "house"
-    CONDO = "condo"
-    TOWNHOUSE = "townhouse"
-
-class UnitStatus(str, Enum):
-    VACANT = "vacant"
-    OCCUPIED = "occupied"
-    UNDER_MAINTENANCE = "under_maintenance"
-    RESERVED = "reserved"
-
-class MaintenanceStatus(str, Enum):
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
-
-class PaymentStatus(str, Enum):
-    PENDING = "pending"
-
-class UrgencyLevel(str, Enum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-    PAID = "paid"
-    OVERDUE = "overdue"
-    CANCELLED = "cancelled"
-
-# -----------------------------
-# Payment Model
-# -----------------------------
 class Payment:
     @staticmethod
     def create(payment_data: Dict):
@@ -170,4 +204,65 @@ class Payment:
         except Exception as e:
             current_app.logger.error(f"Error getting user payments: {e}")
             return {}
+# Add these to your existing Pydantic Models section in models.py
 
+class UserResponse(BaseModel):
+    uid: str
+    email: EmailStr
+    first_name: str
+    last_name: str
+    phone: Optional[str] = None
+    role: UserRole
+    apartment: Optional[str] = None
+    house_number: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    move_in_date: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+class PropertyResponse(BaseModel):
+    id: str
+    name: str
+    address: str
+    city: str
+    state: str
+    zip_code: str
+    type: PropertyType
+    total_units: int
+    year_built: Optional[int] = None
+    amenities: List[str] = []
+    created_at: str
+    updated_at: str
+
+class MaintenanceRequestResponse(BaseModel):
+    id: str
+    unit_id: str
+    user_id: Optional[str] = None
+    issue: str
+    description: str
+    urgency: UrgencyLevel
+    status: MaintenanceStatus
+    created_at: str
+    updated_at: str
+    assigned_to: Optional[str] = None
+    completed_at: Optional[str] = None
+
+class PaymentResponse(BaseModel):
+    id: str
+    tenant_id: str
+    user_id: Optional[str] = None
+    amount: float
+    payment_method: str
+    reference: str
+    status: PaymentStatus
+    due_date: Optional[str] = None
+    paid_at: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+# You might also need these for the crud operations
+class UserList(BaseModel):
+    users: List[UserResponse]
+
+class PropertyList(BaseModel):
+    properties: List[PropertyResponse]
