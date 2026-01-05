@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, EmailStr
 
 import firebase_admin
-from firebase_admin import credentials, auth, db, apps
+from firebase_admin import credentials, auth, db
 import requests  # For Firebase REST API
 
 from config.settings import Config
@@ -327,7 +327,66 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error fetching user profile"
         )
+# ========================
+# FIX FOR FRONTEND - ADD MISSING ENDPOINTS
+# ========================
 
+@app.get("/api/auth/me")
+async def api_auth_me(request: Request):
+    """Fix for missing /api/auth/me endpoint"""
+    try:
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="No token provided"
+            )
+        
+        token = auth_header.replace("Bearer ", "")
+        decoded_token = auth.verify_id_token(token)
+        user_id = decoded_token['uid']
+        
+        user_ref = db.reference(f'users/{user_id}')
+        user_data = user_ref.get() or {}
+        
+        return {
+            "uid": user_id,
+            "email": decoded_token.get('email', ''),
+            "displayName": f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip(),
+            "photoURL": None,
+            "role": user_data.get('role', 'tenant'),
+            "firstName": user_data.get('first_name', ''),
+            "lastName": user_data.get('last_name', ''),
+            "phone": user_data.get('phone', '')
+        }
+        
+    except Exception as e:
+        logger.error(f"/api/auth/me error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed"
+        )
+
+@app.get("/api/properties")
+async def get_public_properties(
+    search: Optional[str] = None,
+    city: Optional[str] = None
+):
+    """Public properties endpoint - no auth required"""
+    try:
+        filters = {}
+        if city:
+            filters['city'] = city
+        
+        properties = await crud.get_properties(filters, search)
+        return properties
+    except Exception as e:
+        logger.error(f"Error in public properties: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error fetching properties"
+        )
+    
 # ========================
 # ROOT & HEALTH ENDPOINTS
 # ========================
